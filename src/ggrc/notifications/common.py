@@ -145,7 +145,7 @@ def get_filter_data(
   return result
 
 
-def get_notification_data(notifications, with_related=True):
+def get_notification_data(notifications, tasks_cache=None, with_related=True):
   """Get notification data for all notifications.
 
   This function returns a filtered data for all notifications for the users
@@ -154,6 +154,7 @@ def get_notification_data(notifications, with_related=True):
   Args:
     notifications (list of Notification): List of notification for which we
       want to get notification data.
+    tasks_cache (dict): Task instances related to given notification records.
     with_related (bool): get notifications data with related objects.
 
   Returns:
@@ -165,7 +166,9 @@ def get_notification_data(notifications, with_related=True):
   aggregate_data = {}
   people_cache = {}
 
-  tasks_cache = cycle_tasks_cache(notifications)
+  if tasks_cache is None:
+    tasks_cache = cycle_tasks_cache(notifications)
+
   if with_related:
     deleted_rels_cache = deleted_task_rels_cache(tasks_cache.keys())
   else:
@@ -207,6 +210,17 @@ def sort_comments(notif_data):
     comment_notifs[parent_obj_info] = comments_as_list
 
 
+def filter_tasks_caches(notifications, tasks_caches):
+  """Filter related tasks by notification id"""
+  task_ids = [n.object_id for n in notifications
+              if n.object_type == "CycleTaskGroupObjectTask"]
+
+  if not task_ids:
+    return {}
+
+  return {i: tasks_caches[i] for i in task_ids if i in tasks_caches}
+
+
 def get_pending_notifications():
   """Get notification data for all future notifications.
 
@@ -221,6 +235,8 @@ def get_pending_notifications():
       (Notification.sent_at.is_(None)) | (Notification.repeating == true())
   ).all()
 
+  tasks_caches = cycle_tasks_cache(notifications)
+
   notif_by_day = defaultdict(list)
   for notification in notifications:
     notif_by_day[notification.send_on.date()].append(notification)
@@ -229,8 +245,10 @@ def get_pending_notifications():
   today = date.today()
   for day, notif in notif_by_day.iteritems():
     current_day = max(day, today)
+    notif_tasks_caches = filter_tasks_caches(notif, tasks_caches)
     data[current_day] = merge_dict(data[current_day],
-                                   get_notification_data(notif))
+                                   get_notification_data(notif,
+                                                         notif_tasks_caches))
 
   return notifications, data
 
