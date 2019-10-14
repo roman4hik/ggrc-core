@@ -210,15 +210,29 @@ def sort_comments(notif_data):
     comment_notifs[parent_obj_info] = comments_as_list
 
 
-def filter_tasks_caches(notifications, tasks_caches):
+def filter_cycle_tasks_caches(notifications, tasks_caches):
   """Filter related tasks by notification id"""
   task_ids = [n.object_id for n in notifications
               if n.object_type == "CycleTaskGroupObjectTask"]
 
-  if not task_ids:
-    return {}
-
   return {i: tasks_caches[i] for i in task_ids if i in tasks_caches}
+
+
+def split_notif_by_chunks(notifications, chunk_size=7000):
+  """Split notification by chunks.
+
+  Args:
+    notifications (list of Notification): List of notification.
+    chunk_size (int): chunk size.
+  """
+  result = []
+  count_chunks = len(notifications) // chunk_size + 1
+  start_index = 0
+  for i in range(start_index, count_chunks + 1):
+    stop_index = start_index + chunk_size
+    result.append(notifications[start_index:stop_index])
+    start_index = i * chunk_size
+  return result
 
 
 def get_pending_notifications():
@@ -234,8 +248,9 @@ def get_pending_notifications():
   notifications = db.session.query(Notification).filter(
       (Notification.sent_at.is_(None)) | (Notification.repeating == true())
   ).all()
-
-  tasks_caches = cycle_tasks_cache(notifications)
+  tasks_caches = {}
+  for notif in split_notif_by_chunks(notifications):
+    tasks_caches.update(cycle_tasks_cache(notif))
 
   notif_by_day = defaultdict(list)
   for notification in notifications:
@@ -245,7 +260,7 @@ def get_pending_notifications():
   today = date.today()
   for day, notif in notif_by_day.iteritems():
     current_day = max(day, today)
-    notif_tasks_caches = filter_tasks_caches(notif, tasks_caches)
+    notif_tasks_caches = filter_cycle_tasks_caches(notif, tasks_caches)
     data[current_day] = merge_dict(data[current_day],
                                    get_notification_data(notif,
                                                          notif_tasks_caches))
