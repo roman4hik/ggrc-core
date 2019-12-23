@@ -173,6 +173,12 @@ def is_creator():
           current_user.system_wide_role == SystemWideRoles.CREATOR)
 
 
+def is_anonymous():
+  """Check if the current user is anonymous."""
+  current_user = _get_current_logged_user()
+  return current_user and current_user.is_anonymous()
+
+
 def is_external_app_user():
   """Checks if the current user is an external application.
 

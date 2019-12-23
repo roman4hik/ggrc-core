@@ -23,9 +23,14 @@ from integration.ggrc.models.test_assessment_base import TestAssessmentBase
 from appengine import base
 
 
+@ddt.ddt
 class TestAssessment(TestAssessmentBase):
   """Assessment test cases"""
-  # pylint: disable=invalid-name
+  # pylint: disable=invalid-name,too-many-public-methods
+
+  def setUp(self):
+    super(TestAssessment, self).setUp()
+    self.object_generator = generator.ObjectGenerator()
 
   def test_auto_slug_generation(self):
     """Test auto slug generation"""
@@ -427,6 +432,53 @@ class TestAssessment(TestAssessmentBase):
       })
 
     self.assert201(response)
+
+  @ddt.data(
+      {
+          "system_role": "Creator",
+          "audit_role": "Auditors",
+          "expected_result": False
+      },
+      {
+          "system_role": "Editor",
+          "audit_role": "Auditors",
+          "expected_result": True
+      },
+      {
+          "system_role": "Reader",
+          "audit_role": "Auditors",
+          "expected_result": True
+      },
+  )
+  @ddt.unpack
+  def test_is_show_related_objs_tabs(self,
+                                     system_role,
+                                     audit_role,
+                                     expected_result):
+    """Test checks correct work of test_is_show_related_objs_tabs flag."""
+    _, user = self.object_generator.generate_person(user_role=system_role)
+
+    with factories.single_commit():
+      audit = factories.AuditFactory()
+      audit.add_person_with_role_name(user, audit_role)
+      audit_id = audit.id
+
+    self.api.set_user(user)
+    response = self.api.post(all_models.Assessment, {
+        "assessment": {
+            "title": "Assessment1",
+            "context": None,
+            "audit": {
+                "id": audit_id,
+                "type": "Audit",
+            },
+            "status": "In Progress",
+        }
+    })
+    asmt = response.json
+    self.assertEqual(
+        asmt['assessment']['is_show_related_objs_tabs'], expected_result
+    )
 
 
 @ddt.ddt
