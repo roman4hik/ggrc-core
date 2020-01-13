@@ -155,6 +155,28 @@ def has_changed_condition(instance, property_name, prevent_if=None, **_):
       property_name, False).has_changes()
 
 
+def get_audit_auditors_ids(audit_id):
+  """Get Audit aditors ids."""
+  result = db.session.query(
+      all_models.AccessControlList,
+      all_models.AccessControlPerson
+  ).join(
+      all_models.AccessControlPerson
+  ).join(
+      all_models.AccessControlRole
+  ).filter(
+      all_models.AccessControlList.object_type == 'Audit',
+      all_models.AccessControlList.object_id == audit_id,
+      all_models.AccessControlRole.name == "Auditors",
+  )
+  return [person[1].person_id for person in result]
+
+
+def is_current_user_audit_auditor(audit_id):
+  """Check if user is audit auditor."""
+  return current_user.id in get_audit_auditors_ids(audit_id)
+
+
 def is_auditor(instance, **_):
   """Check if user has auditor role on the audit field of the instance"""
   # pylint: disable=protected-access

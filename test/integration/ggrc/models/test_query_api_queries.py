@@ -24,7 +24,7 @@ class TestAllModels(WithQueryApi, TestCase):
     self.api = api_helper.Api()
 
   QUERY_API_LIMIT = {
-      'Assessment': 14,
+      'Assessment': 17,
       'AssessmentTemplate': 8,
       'AccessGroup': 16,
       'AccountBalance': 12,

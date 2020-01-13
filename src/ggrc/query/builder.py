@@ -11,8 +11,11 @@ import collections
 import datetime
 import itertools
 
+from flask.ext.login import current_user
 import sqlalchemy as sa
 
+from ggrc import rbac
+from ggrc import login
 from ggrc import db
 from ggrc import models
 from ggrc.models import inflector
@@ -303,6 +306,27 @@ class QueryHelper(object):
               revision.id] for revision in revisions]
     return list(itertools.chain.from_iterable(result))
 
+  @staticmethod
+  def _filtered_issue_expression(expression, object_class, query):
+    """Filtered relevant audit issues if request user is Auditor and Creator."""
+    object_name = expression.get('object_name')
+    if object_name != 'Audit':
+      return query
+    if not current_user.is_anonymous():
+      is_auditor = rbac.permissions_provider.is_current_user_audit_auditor(
+          expression['ids'][0]
+      )
+
+      is_creator = login.is_creator()
+      if is_auditor and is_creator:
+        owned_exp = {
+          'ids': [current_user.id],
+          'op': {'name': 'owner'}
+        }
+        exp = custom_operators.owned(owned_exp, object_class, None, None)
+        query = query.filter(exp)
+    return query
+
   def _get_filtered_expression(self, expression, object_class, tgt_class, query):
     """Filter query according to expression."""
     with benchmark("Parse filter query: _get_ids > _build_expression"):
@@ -314,6 +338,8 @@ class QueryHelper(object):
       )
       if filter_expression is not None:
         query = query.filter(filter_expression)
+        if object_class.__name__ == 'Issue':
+          query = self._filtered_issue_expression(expression, object_class, query)
     return query
 
   def _get_revision_query(self, object_class, expression, object_query):

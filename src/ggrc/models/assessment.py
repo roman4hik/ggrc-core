@@ -3,6 +3,7 @@
 
 """Module for Assessment object"""
 
+from flask.ext.login import current_user
 from sqlalchemy.ext.declarative import declared_attr
 from sqlalchemy.orm import validates
 from sqlalchemy import orm
@@ -314,13 +315,6 @@ class Assessment(Assignable,
           "view_only": True,
           "description": "Allowed values are:\nyes\nno"
       },
-      "is_show_related_objs_tabs": {
-          "display_name": "is_show_related_objs_tabs",
-          "mandatory": False,
-          "ignore_on_update": True,
-          "view_only": True,
-          "description": "Allowed values are:\nyes\nno"
-      },
       "test_plan": "Assessment Procedure",
       # Currently we decided to have 'Due Date' alias for start_date,
       # but it can be changed in future
@@ -356,7 +350,7 @@ class Assessment(Assignable,
   @simple_property
   def is_show_related_objs_tabs(self):
     """Show related objects tabs like related asmt and related issue."""
-    if not login.is_anonymous():
+    if current_user and not current_user.is_anonymous():
       is_auditor = rbac.permissions_provider.is_auditor(self)
       is_creator = login.is_creator()
       return not (is_auditor and is_creator)
