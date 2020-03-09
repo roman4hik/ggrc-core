@@ -226,3 +226,129 @@ class TesSoxNotificationHook(TestCase):
 
     notif_count = len(db.session.query(all_models.Notification).all())
     self.assertEqual(notif_count, 0)
+
+  @ddt.data(
+      {
+          "date_offset": 0,
+          "expected_types": [
+              notif_types.SoxNotificationTypes.DUE_DATE_EXPIRATION.value,
+          ],
+          "expected_count": 1
+      },
+      {
+          "date_offset": 1,
+          "expected_types": [
+              notif_types.SoxNotificationTypes.DUE_DATE_EXPIRATION.value,
+              notif_types.SoxNotificationTypes.DUE_DATE_TODAY.value
+          ],
+          "expected_count": 2
+      },
+      {
+          "date_offset": 3,
+          "expected_types": [
+              notif_types.SoxNotificationTypes.DUE_DATE_BEFORE_1_DAY.value,
+              notif_types.SoxNotificationTypes.DUE_DATE_EXPIRATION.value,
+              notif_types.SoxNotificationTypes.DUE_DATE_TODAY.value,
+          ],
+          "expected_count": 3
+      },
+      {
+          "date_offset": 4,
+          "expected_types": [
+              notif_types.SoxNotificationTypes.DUE_DATE_BEFORE_1_DAY.value,
+              notif_types.SoxNotificationTypes.DUE_DATE_BEFORE_3_DAY.value,
+              notif_types.SoxNotificationTypes.DUE_DATE_EXPIRATION.value,
+              notif_types.SoxNotificationTypes.DUE_DATE_TODAY.value,
+          ],
+          "expected_count": 4
+      },
+  )
+  @ddt.unpack
+  def test_update_notif_after_update(self,
+                                     date_offset,
+                                     expected_types,
+                                     expected_count):
+    """Test checks updating all sox notif relate with asmt."""
+
+    today = datetime.utcnow().date()
+    initial_data = today + timedelta(days=10)
+
+    with factories.single_commit():
+      audit = factories.AuditFactory()
+      asmt = factories.AssessmentFactory(
+          audit=audit,
+          sox_302_enabled=True,
+          start_date=initial_data
+      )
+      self._create_sox_notifications(
+          asmt,
+          notif_types.SoxNotificationTypes
+      )
+
+    new_start_date = today + timedelta(days=date_offset)
+    self.api.put(asmt, {"start_date": new_start_date})
+
+    created_sox_notifs = db.session.query(
+        all_models.NotificationType.name,
+    ).join(
+        all_models.Notification,
+    ).filter(
+        all_models.NotificationType.name.in_(expected_types),
+    ).order_by('name').all()
+
+    self.assertEqual(len(created_sox_notifs), expected_count)
+    self.assertListEqual(
+        [name[0] for name in created_sox_notifs],
+        expected_types,
+    )
+
+  def test_remove_notit_after_update(self):
+    """Test checks deleting notifs if we reset start_date."""
+
+    with factories.single_commit():
+      audit = factories.AuditFactory()
+      today = datetime.utcnow().date()
+      start_date = today + timedelta(days=8)
+      asmt = factories.AssessmentFactory(
+          audit=audit,
+          sox_302_enabled=True,
+          start_date=start_date
+      )
+      self._create_sox_notifications(asmt,
+                                     notif_types.SoxNotificationTypes)
+
+    self.api.put(asmt, {"start_date": None})
+
+    sox_notifs = [nt.value for nt in notif_types.SoxNotificationTypes]
+    sox_notif_count = len(db.session.query(
+        all_models.NotificationType.name,
+    ).join(
+        all_models.Notification,
+    ).filter(
+        all_models.NotificationType.name.in_(sox_notifs),
+    ).all())
+    self.assertEqual(sox_notif_count, 0)
+
+  def test_create_notif_after_update(self):
+    """Test checks creating notifs if we set start_date."""
+
+    with factories.single_commit():
+      audit = factories.AuditFactory()
+      asmt = factories.AssessmentFactory(
+          audit=audit,
+          sox_302_enabled=True,
+      )
+
+    today = datetime.utcnow().date()
+    start_date = today + timedelta(days=8)
+    self.api.put(asmt, {"start_date": start_date})
+
+    sox_notifs = [nt.value for nt in notif_types.SoxNotificationTypes]
+    sox_notif_count = len(db.session.query(
+        all_models.NotificationType.name,
+    ).join(
+        all_models.Notification,
+    ).filter(
+        all_models.NotificationType.name.in_(sox_notifs),
+    ).all())
+    self.assertEqual(sox_notif_count, 5)

@@ -34,6 +34,13 @@ def create_sox_notification(obj, notification_type, send_on):
   ))
 
 
+def get_notification_types(*names):
+  """Get notifications types by name."""
+  return all_models.NotificationType.query.filter(
+      all_models.NotificationType.name.in_(names)
+  ).all()
+
+
 def create_sox_notifications(obj):
   """Create sox notifications all types for assessment. """
   due_date = obj.start_date
@@ -45,3 +52,26 @@ def create_sox_notifications(obj):
         notif_type == notif_types.SoxNotificationTypes.DUE_DATE_EXPIRATION
     ):
       create_sox_notification(obj, notif_type.value, send_on)
+
+
+def remove_sox_notifications(obj):
+  """Remove all sox notifications relate with assessment."""
+  notif_type_names = [
+      notif.value for notif in notif_types.SoxNotificationTypes
+  ]
+  notif_type_ids = [
+      i.id for i in get_notification_types(*notif_type_names)
+  ]
+
+  all_models.Notification.query.filter(
+      all_models.Notification.object_id == obj.id,
+      all_models.Notification.object_type == obj.type,
+      all_models.Notification.notification_type_id.in_(notif_type_ids)
+  ).delete(synchronize_session='fetch')
+
+
+def update_sox_notifications(obj, initial_state):
+  """Update sox notification relate with assessment."""
+  if obj.start_date != initial_state.start_date:
+    remove_sox_notifications(obj)
+    create_sox_notifications(obj)
