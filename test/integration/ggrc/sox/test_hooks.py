@@ -176,3 +176,53 @@ class TesSoxNotificationHook(TestCase):
         [name for name, in created_sox_notifs],
         expected_types,
     )
+
+  @staticmethod
+  def _create_sox_notifications(obj, sox_notif_types):
+    """Create sox notifications."""
+
+    due_date = obj.start_date
+    created_notif_ids = []
+
+    sox_notif_types = db.session.query(
+        all_models.NotificationType.id,
+        all_models.NotificationType.name,
+    ).filter(
+        all_models.NotificationType.name.in_(
+            [nt.value for nt in sox_notif_types]
+        ),
+    )
+
+    for notif_id, notif_type_name in sox_notif_types:
+      notif = factories.NotificationFactory(
+          object=obj,
+          notification_type_id=notif_id,
+          send_on=(
+              notif_types.SoxNotificationTypes(
+                  notif_type_name
+              ).timedelta + due_date
+          )
+      )
+      created_notif_ids.append(notif.id)
+
+    return created_notif_ids
+
+  def test_delete_sox_notif(self):
+    """Test checks deleting all sox notif after deleting asmt."""
+    with factories.single_commit():
+      audit = factories.AuditFactory()
+      today = datetime.utcnow().date()
+      start_date = today + timedelta(days=8)
+      asmt = factories.AssessmentFactory(
+          audit=audit,
+          sox_302_enabled=True,
+          start_date=start_date
+      )
+      self._create_sox_notifications(asmt,
+                                     notif_types.SoxNotificationTypes)
+
+    asmt_id = all_models.Assessment.query.first()
+    self.api.delete(asmt_id)
+
+    notif_count = len(db.session.query(all_models.Notification).all())
+    self.assertEqual(notif_count, 0)

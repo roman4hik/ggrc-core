@@ -248,6 +248,12 @@ class AssessmentFactory(TitledFactory):
   audit = factory.LazyAttribute(lambda m: AuditFactory())
 
 
+class NotificationFactory(ModelFactory):
+
+  class Meta:
+    model = all_models.Notification
+
+
 class ContextFactory(ModelFactory):
 
   class Meta:
@@ -758,6 +764,7 @@ def get_model_factory(model_name):
       "SavedSearch": SavedSearchFactory,
       "Standard": StandardFactory,
       "System": SystemFactory,
+      "Notification": NotificationFactory,
       "TaskGroup": wf_factories.TaskGroupFactory,
       "TaskGroupTask": wf_factories.TaskGroupTaskFactory,
       "TechnologyEnvironment": TechnologyEnvironmentFactory,

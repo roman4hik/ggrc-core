@@ -14,7 +14,7 @@ from alembic import op
 
 # revision identifiers, used by Alembic.
 revision = '283ed454353a'
-down_revision = '007ee00ff963'
+down_revision = '51cadec32665'
 
 sox_302_notifications = [
     {
