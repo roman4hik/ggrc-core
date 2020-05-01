@@ -36,6 +36,7 @@ class KeyReport(synchronizable.Synchronizable,
 
   infrastructure = deferred(db.Column(db.Boolean), "KeyReport")
   version = deferred(db.Column(db.String), "KeyReport")
+  send_by_default = db.Column(db.Boolean, nullable=False, default=True)
 
   _api_attrs = reflection.ApiAttributes(
       "infrastructure",

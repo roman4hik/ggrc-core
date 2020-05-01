@@ -217,6 +217,43 @@ class UpdateAttrHandler(object):
     return json_obj.get(attr_name)
 
   @classmethod
+  def get_default_value(cls, obj, attr_name):
+    """Get default value from table"""
+    is_exist = False
+    can_nullable = False
+
+    attr_info = getattr(obj.__class__, attr_name)
+    default_value = attr_info.property.columns[0].default
+    if default_value is None:
+      nullable = attr_info.property.columns[0].nullable
+      if nullable is not None:
+        can_nullable = nullable
+      return None, is_exist, can_nullable
+
+    is_exist = True
+    return default_value.arg, is_exist, can_nullable
+
+  @classmethod
+  def Boolean(cls, obj, json_obj, attr_name, class_attr):
+    """Translate the JSON value for a ``Boolean`` column."""
+    if attr_name not in json_obj:
+      default_value, is_exist, can_nullable = cls.get_default_value(obj, attr_name)
+      if is_exist:
+        return default_value
+      return None if can_nullable else False
+    return json_obj[attr_name]
+
+  @classmethod
+  def Text(cls, obj, json_obj, attr_name, class_attr):
+    """Translate the JSON value for a ``Text`` column."""
+    if attr_name not in json_obj:
+      default_value, is_exist, can_nullable = cls.get_default_value(obj, attr_name)
+      if is_exist:
+        return default_value
+      return None if can_nullable else ''
+    return json_obj[attr_name]
+
+  @classmethod
   def DateTime(cls, obj, json_obj, attr_name, class_attr):
     """Translate the JSON value for a ``Datetime`` column."""
     value = json_obj.get(attr_name)
